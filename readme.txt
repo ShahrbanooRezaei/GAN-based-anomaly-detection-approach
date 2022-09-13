@@ -10,7 +10,7 @@ conda install urllib3==1.26.2
 conda install -c conda-forge visdom (0.1.8.9)
 conda install websocket-client==0.56.0
 
-cd C:/Users/srezaei/OneDrive - University of Tennessee/PHD/PhD-Reasearch/04-GANs/code/ganomaly_Yiang
+cd 
 pip install --user --requirement requirements.txt
 
 conda install spyder
