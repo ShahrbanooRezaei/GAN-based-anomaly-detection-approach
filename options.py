@@ -82,6 +82,7 @@ class Options():
         self.parser.add_argument('--w_adv', type=float, default=1, help='Adversarial loss weight')
         self.parser.add_argument('--w_con', type=float, default=50, help='Reconstruction loss weight')
         self.parser.add_argument('--w_enc', type=float, default=1, help='Encoder loss weight.')
+        self.parser.add_argument('--w_kld', type=float, default=1, help='KLD loss weight.')
         self.parser.add_argument('--result_name', type=float, default=['Score_LS1', 'Score_LS2', 'Score_FS1', 'Score_FS2'], help='Result files name')
         self.parser.add_argument('--tun_name', type=str, default='test0.5', help='Tunning') 
         self.parser.add_argument('--seq_sp', type=int, default=245, help='sequence step for training')
