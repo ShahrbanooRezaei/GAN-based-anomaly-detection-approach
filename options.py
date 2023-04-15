@@ -33,13 +33,14 @@ class Options():
 
         ##
         # Base
-        self.parser.add_argument('--dataset', default='CAV_reviewer_run', help='folder | cifar10 | mnist ')
+        self.parser.add_argument('--dataset', default='CAV_y_r2', help='folder | cifar10 | mnist ')
         self.parser.add_argument('--dataroot', default='', help='path to dataset')
         self.parser.add_argument('--batchsize', type=int, default=256, help='input batch size')
-        self.parser.add_argument('--workers', type=int, help='number of data loading workers', default=8)
+        self.parser.add_argument('--workers', type=int, help='number of data loading workers', default=0)
         self.parser.add_argument('--droplast', action='store_true', default=True, help='Drop last batch size.')
         self.parser.add_argument('--isize1', type=int, default=4, help='input image size.')
         self.parser.add_argument('--isize2', type=int, default=245, help='input image size.')
+        self.parser.add_argument('--embedding_dim', type=int, default=128, help='embedding_dim LSTM.')
         self.parser.add_argument('--nc', type=int, default=1, help='input image channels')
         self.parser.add_argument('--nz', type=int, default=100, help='size of the latent z vector')
         self.parser.add_argument('--ngf', type=int, default=32)
@@ -63,11 +64,11 @@ class Options():
         ## 
         #
         #self.parser.add_argument('--VAL_dataset_root', default='data/l_f_GM_state_train_190k.csv', help='path to dataset LL') #
-        self.parser.add_argument('--Train_dataset_root', default='g2_real_data_row.csv', help='path to dataset LL')
+        self.parser.add_argument('--Train_dataset_root', default='/g2_real_data_row.csv', help='path to dataset LL')
         self.parser.add_argument('--n', type=int, default=7350000, help='training size')
         #self.parser.add_argument('--nv', type=int, default=15000, help='validation size')
-        self.parser.add_argument('--Test_dataset_root', default='test5_all.csv', help='path to dataset')
-        self.parser.add_argument('--label_root', default='test5_anomaly_label_all.csv', help='label root')
+        self.parser.add_argument('--Test_dataset_root', default='/test5_all.csv', help='path to dataset')
+        self.parser.add_argument('--label_root', default='/test5_anomaly_label_all.csv', help='label root')
         self.parser.add_argument('--print_freq', type=int, default=100, help='frequency of showing training results on console')
         self.parser.add_argument('--display_train_img', type=int, default=100, help='frequency of displaying real and fake images')
         self.parser.add_argument('--display_test_img', type=int, default=64, help='frequency of displaying real and fake images')
@@ -82,11 +83,11 @@ class Options():
         self.parser.add_argument('--w_adv', type=float, default=1, help='Adversarial loss weight')
         self.parser.add_argument('--w_con', type=float, default=50, help='Reconstruction loss weight')
         self.parser.add_argument('--w_enc', type=float, default=1, help='Encoder loss weight.')
-        self.parser.add_argument('--w_kld', type=float, default=1, help='KLD loss weight.')
+        
         self.parser.add_argument('--result_name', type=float, default=['Score_LS1', 'Score_LS2', 'Score_FS1', 'Score_FS2'], help='Result files name')
-        self.parser.add_argument('--tun_name', type=str, default='test0.5', help='Tunning') 
+        self.parser.add_argument('--tun_name', type=str, default='test05%_all', help='Tunning') # Test3_ALL 2%, test4_all 1%, test5_all > 0.5%
         self.parser.add_argument('--seq_sp', type=int, default=245, help='sequence step for training')
-        self.parser.add_argument('--per_weight', type=float, default=[0,0,0,0,0,1], help='score weights')
+        self.parser.add_argument('--per_weight', type=float, default=[0,0,0,0,0,0,1], help='score weights')
         self.parser.add_argument('--threshold', type=float, default=[0,0.01,0.02,0.03,0.04,0.05,0.1,0.15,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9], help='Thresholds')
         self.parser.add_argument('--scal', type=int, default=0, help='if test/val use train scaler (0) or not (1)')
         self.isTrain = True
