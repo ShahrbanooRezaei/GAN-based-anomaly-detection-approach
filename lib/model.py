@@ -23,14 +23,22 @@ import torch.nn as nn
 import torch.utils.data
 import torchvision.utils as vutils
 
-from lib.networks import NetG, NetD, weights_init
+from lib.networks import NetG, NetD, weights_init, Autoencoder
 from lib.visualizer import Visualizer
 from lib.loss import l2_loss
 from lib.data import load_Test_data
 from lib.data import load_Train_data_2
 from lib.data import load_val_data
 from lib.evaluate_Train import EV_T
-from lib.evaluate_Test import performance
+
+# from lib.evaluate_Test_AG_AV_f_run import performance
+# from lib.evaluate_Test_AG_AV_f_run import performance_lstm
+
+from lib.evaluate_Test_FS1_FS2_f_run import performance
+from lib.evaluate_Test_FS1_FS2_f_run import performance_lstm
+
+# from lib.evaluate_Test import performance
+# from lib.evaluate_Test import performance_lstm
 from lib.evaluate_Test import performance_rev
 
 
@@ -105,7 +113,8 @@ class BaseModel():
             ('err_g', self.err_g.item()),
             ('err_g_adv', self.err_g_adv.item()),
             ('err_g_con', self.err_g_con.item()),
-            ('err_g_enc', self.err_g_enc.item())])
+            ('err_g_enc', self.err_g_enc.item()),
+            ('err_lstm', self.err_lstm.item())])
 
         return errors
 
@@ -119,9 +128,10 @@ class BaseModel():
         
         reals = self.input.data
         fakes = self.fake.data
+        fakes_lstm = self.fake_lstm.data
         fixed = self.netg(self.fixed_input)[0].data
 
-        return reals, fakes, fixed
+        return reals, fakes, fixed, fakes_lstm
 
     ##
     def save_weights(self, epoch):
@@ -138,6 +148,9 @@ class BaseModel():
                    '%s/netG.pth' % (weight_dir))
         torch.save({'epoch': epoch + 1, 'state_dict': self.netd.state_dict()},
                    '%s/netD.pth' % (weight_dir))
+        
+        torch.save({'epoch': epoch + 1, 'state_dict': self.netLSTM.state_dict()},
+                   '%s/netLSTM.pth' % (weight_dir))
 
     ##
     def train_one_epoch(self):
@@ -145,6 +158,8 @@ class BaseModel():
         """
 
         self.netg.train()
+        self.netd.train()
+        self.netLSTM.train()
         epoch_iter = 0
         for data in tqdm(self.dataloader, leave=False, total=len(self.dataloader)):
             self.total_steps += self.opt.batchsize
@@ -161,11 +176,11 @@ class BaseModel():
                     self.visualizer.plot_current_errors(self.epoch, counter_ratio, errors)
 
             if self.total_steps % self.opt.display_train_img == 0:
-                reals, fakes, fixed = self.get_current_images()
+                reals, fakes, fixed, fakes_lstm = self.get_current_images()
                 #self.visualizer.save_current_images(self.epoch, reals, fakes, fixed)
                 #if self.opt.display:
                 mode = 'Train'
-                # self.visualizer.display_current_images_dif(reals, fakes, fixed, mode, self.epoch, self.epoch)
+                self.visualizer.display_current_images_dif(reals, fakes, fixed, mode, self.epoch, self.epoch, fakes_lstm)
                 #self.visualizer.display_current_images(reals, fakes, fixed, mode, self.epoch, self.epoch)
 
         print(">> Training model %s. Epoch %d/%d" % (self.name, self.epoch+1, self.opt.niter))
@@ -189,11 +204,11 @@ class BaseModel():
             
         for self.epoch in range(self.opt.iter, self.opt.niter):
             # Train for one epoch
-            self.loss_d_real_rev = []
-            self.loss_d_fake_rev = []
-            self.loss_g_rev = []
-            self.acc_real_rev = []
-            self.acc_fake_rev = []
+            self.loss_d_real_rev = [0]
+            self.loss_d_fake_rev = [0]
+            self.loss_g_rev = [0]
+            self.acc_real_rev = [0]
+            self.acc_fake_rev = [0]
             
             
             # print(self.err_g)
@@ -203,7 +218,7 @@ class BaseModel():
             self.loss_rev.append([sum(self.loss_d_real_rev)/l,sum(self.loss_d_fake_rev)/l,sum(self.loss_g_rev)/l,sum(self.acc_real_rev)/l, sum(self.acc_fake_rev)/l])
 
             ############### Reviewer
-            self.test(self.dataloader_test,'reviewer')
+            # self.test(self.dataloader_test,'reviewer')
             
             
             ###############
@@ -219,7 +234,7 @@ class BaseModel():
         df3.columns=['loss_d_real_rev','loss_d_fake_rev', 'loss_g_rev', 'acc_real_rev', 'acc_fake_rev']
         df3.to_csv('experiments\{:s}\{:s}\performance\{:d}_loss.csv'.format(self.opt.dataset,self.opt.tun_name,self.epoch), index=False)
     
-        # self.test(self.dataloader_test,'Test')
+        self.test(self.dataloader_test,'Test')
         # self.test(self.dataloader_test_MW,'Test_MW')
         # self.test(self.dataloader_TrTe,'Train_Test')
         self.save_weights(self.epoch)
@@ -240,18 +255,23 @@ class BaseModel():
             # Load the weights of netg and netd.
             if self.opt.load_weights:
                 path = "./output/{}/{}/train/weights/netG.pth".format(self.name.lower(), self.opt.dataset)
-                pretrained_dict = torch.load(path)['state_dict']
+                path_lstm = "./output/{}/{}/train/weights/netLSTM.pth".format(self.name.lower(), self.opt.dataset)
+                
+                
+                pretrained_dict = torch.load(path)['state_dict'] 
+                pretrained_dict_lstm = torch.load(path_lstm)['state_dict']
 
                 try:
                     self.netg.load_state_dict(pretrained_dict)
+                    self.netLSTM.load_state_dict(pretrained_dict_lstm)
                 except IOError:
                     raise IOError("netG weights not found")
                 print('   Loaded weights.')
                 
             #n_B = len(dataloader_t) * self.opt.batchsize  
             n_B = len(dataloader_t.dataset) ##if last drop is False
-            scores = torch.zeros(size=(self.opt.isize1, n_B*self.opt.isize2,6), dtype=torch.float32, device=self.device)
-            scor = torch.zeros(size=( n_B*self.opt.isize2,self.opt.isize1*2), dtype=torch.float32, device=self.device)
+            scores = torch.zeros(size=(self.opt.isize1, n_B*self.opt.isize2,7), dtype=torch.float32, device=self.device)
+            scor = torch.zeros(size=( n_B*self.opt.isize2,self.opt.isize1*3), dtype=torch.float32, device=self.device)
             
             print(scores.size())
             
@@ -272,6 +292,8 @@ class BaseModel():
                 pred_test, feat_test = self.netd(self.input)
                 pred_fake, feat_fake = self.netd(self.fake)
                 
+                self.fake_lstm = self.netLSTM(self.fake)
+                
                 err_g_adv = torch.mean(torch.abs((self.netd(self.input)[1]-self.netd(self.fake)[1])), dim=(1,2,3)) #!!!!!
                 
                 err_g_enc = torch.mean(torch.pow((latent_i-latent_o), 2), dim=(1,2,3))
@@ -289,20 +311,23 @@ class BaseModel():
                         scores[k,jj*self.opt.isize2 : (jj+1)*self.opt.isize2,3]=pred_fake[b]
                         scores[k,jj*self.opt.isize2 : (jj+1)*self.opt.isize2,4]=(self.input[b,0,k,:]-self.fake[b,0,k,:])**2
                         scores[k,jj*self.opt.isize2 : (jj+1)*self.opt.isize2,5]=torch.abs(self.input[b,0,k,:]-self.fake[b,0,k,:])
+                        scores[k,jj*self.opt.isize2 : (jj+1)*self.opt.isize2,6]=torch.abs(self.input[b,0,k,:]-self.fake_lstm[b,0,k,:])
+                        
                         scor[jj*self.opt.isize2 : (jj+1)*self.opt.isize2,k] = self.input[b,0,k,:]
                         scor[jj*self.opt.isize2 : (jj+1)*self.opt.isize2,k+4] = self.fake[b,0,k,:]
+                        scor[jj*self.opt.isize2 : (jj+1)*self.opt.isize2,k+8] = self.fake_lstm[b,0,k,:]
                 self.times.append(time_o - time_i)
                 
                 
-                reals, fakes, fixed = self.get_current_images()
-                if phase=='Test':
-                    mode = 'Test'
-                    self.visualizer.display_current_images_dif(reals, fakes, fixed, mode, self.epoch,i)
-                if bb == 0:
-                    if phase=='val':
-                        mode = 'val'
-                        self.visualizer.display_current_images_dif3(reals, fakes, fixed, mode, self.epoch,i)
-                bb=1
+                # reals, fakes, fixed, fakes_lstm = self.get_current_images()
+                # if phase=='Test':
+                #     mode = 'Test'
+                #     self.visualizer.display_current_images_dif(reals, fakes, fixed, mode, self.epoch,i, fakes_lstm)
+                # if bb == 0:
+                #     if phase=='val':
+                #         mode = 'val'
+                #         self.visualizer.display_current_images_dif(reals, fakes, fixed, mode, self.epoch,i, fakes_lstm)
+                # bb=1
 
                 
 
@@ -317,6 +342,7 @@ class BaseModel():
                     np.savetxt('experiments/%s/%s/performance/fe_%d_%s.csv' % (self.opt.dataset,self.opt.tun_name,self.epoch, n[jj]), scores.squeeze().cpu().numpy()[jj,:,:], delimiter=',')
                 np.savetxt('experiments/%s/%s/performance/fe_%d_NM.csv' % (self.opt.dataset,self.opt.tun_name,self.epoch), scor.squeeze().cpu().numpy(), delimiter=',')
                 performance(self.opt,self.epoch)
+                performance_lstm(self.opt,self.epoch)
             
             if phase =='reviewer':
                 for jj in range(self.opt.isize1):
@@ -357,11 +383,10 @@ class Ganomaly(BaseModel):
         # Create and initialize networks.
         self.netg = NetG(self.opt).to(self.device)
         self.netd = NetD(self.opt).to(self.device)
+        self.netLSTM = Autoencoder(self.opt).to(self.device)
         self.netg.apply(weights_init)
         self.netd.apply(weights_init)
-        
-        
-        
+        self.netLSTM.apply(weights_init)
 
         ##
         if self.opt.resume != '':
@@ -369,12 +394,14 @@ class Ganomaly(BaseModel):
             self.opt.iter = torch.load(os.path.join(self.opt.resume, 'netG.pth'))['epoch']
             self.netg.load_state_dict(torch.load(os.path.join(self.opt.resume, 'netG.pth'))['state_dict'])
             self.netd.load_state_dict(torch.load(os.path.join(self.opt.resume, 'netD.pth'))['state_dict'])
+            self.netLSTM.load_state_dict(torch.load(os.path.join(self.opt.resume, 'netLSTM.pth'))['state_dict'])
             print("\tDone.\n")
 
         self.l_adv = l2_loss
         self.l_con = nn.L1Loss()
         self.l_enc = l2_loss
         self.l_bce = nn.BCELoss()
+        self.criterion = nn.L1Loss(reduction='sum')
 
         ##
         # Initialize input tensors.
@@ -384,13 +411,16 @@ class Ganomaly(BaseModel):
         self.fixed_input = torch.empty(size=(self.opt.batchsize, 1, self.opt.isize1, self.opt.isize2), dtype=torch.float32, device=self.device)
         self.real_label = torch.ones (size=(self.opt.batchsize,), dtype=torch.float32, device=self.device)
         self.fake_label = torch.zeros(size=(self.opt.batchsize,), dtype=torch.float32, device=self.device)
+        
         ##
         # Setup optimizer
         if self.opt.isTrain:
             self.netg.train()
             self.netd.train()
+            self.netLSTM.train()
             self.optimizer_d = optim.Adam(self.netd.parameters(), lr=self.opt.lr, betas=(self.opt.beta1, 0.999))
             self.optimizer_g = optim.Adam(self.netg.parameters(), lr=self.opt.lr, betas=(self.opt.beta1, 0.999))
+            self.optimizer_lstm = optim.Adam(self.netLSTM.parameters(), lr=self.opt.lr, betas=(self.opt.beta1, 0.999))
 
     ##
     def forward_g(self):
@@ -405,7 +435,11 @@ class Ganomaly(BaseModel):
         self.pred_real, self.feat_real = self.netd(self.input)
         self.pred_fake, self.feat_fake = self.netd(self.fake.detach())
         
-        
+    ##
+    def forward_lstm(self):
+        """ Forward propagate through netLSTM
+        """
+        self.fake_lstm = self.netLSTM(self.fake.detach())
 
     ##
     def backward_g(self):
@@ -418,10 +452,6 @@ class Ganomaly(BaseModel):
                      self.err_g_con * self.opt.w_con + \
                      self.err_g_enc * self.opt.w_enc
         self.err_g.backward(retain_graph=True)
-        
-        
-        self.loss_g_rev.append(self.err_g.item())
-        
 
     ##
     def backward_d(self):
@@ -434,13 +464,14 @@ class Ganomaly(BaseModel):
         # NetD Loss & Backward-Pass
         self.err_d = (self.err_d_real + self.err_d_fake) * 0.5
         self.err_d.backward()
+    
+    ##
+    def backward_lstm(self):
+        """ Backpropagate through netLSTM
+        """
         
-        self.loss_d_real_rev.append(self.err_d_real.item())
-        self.loss_d_fake_rev.append(self.err_d_fake.item())
-        
-        self.acc_real_rev.append(torch.mean(self.pred_real).item())
-        self.acc_fake_rev.append(torch.mean(self.pred_fake).item())
-        
+        self.err_lstm = self.l_con(self.fake_lstm, self.input)
+        self.err_lstm.backward() #(retain_graph=True)
 
     ##
     def reinit_d(self):
@@ -455,6 +486,7 @@ class Ganomaly(BaseModel):
         # Forward-pass
         self.forward_g()
         self.forward_d()
+        self.forward_lstm()
 
         # Backward-pass
         # netg
@@ -467,4 +499,9 @@ class Ganomaly(BaseModel):
         self.backward_d()
         self.optimizer_d.step()
         if self.err_d.item() < 1e-5: self.reinit_d()
+        
+        # netLSTM
+        self.optimizer_lstm.zero_grad()
+        self.backward_lstm()
+        self.optimizer_lstm.step()
 

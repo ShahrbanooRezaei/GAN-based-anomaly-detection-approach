@@ -185,7 +185,7 @@ class Visualizer():
         #     plt.savefig('experiments\{:s}\{:s}\Test\{:d}_image_at_batch_{:04d}_1.png'.format(self.opt.dataset,self.opt.tun_name,epoch,bs))
         plt.show()
         
-    def display_current_images_dif(self, reals, fakes, fixed, mode, epoch, bs):
+    def display_current_images_dif(self, reals, fakes, fixed, mode, epoch, bs, fakes_lstm):
     
         """ Display current images.
         Args:
@@ -206,6 +206,7 @@ class Visualizer():
         reals = (reals.cpu().numpy())
         fakes = (fakes.cpu().numpy())
         fixed = (fixed.cpu().numpy())
+        fakes_lstm = (fakes_lstm.cpu().numpy())
         
         rand = np.random.randint(1, reals.shape[0], size=3)
         fig = plt.figure(figsize=(11,11))
@@ -213,6 +214,9 @@ class Visualizer():
         for j in range(3):
             ax = fig.add_subplot(3, 2, 1+2*j)
             i=rand[j]
+            ax.plot((fakes_lstm[i,0,1,:]),label='Fake_lstm AV Velocity in Y')
+            ax.plot((fakes_lstm[i,0,0,:]),label='Fake_lstm AV Velocity in X')
+            
             ax.plot((fakes[i,0,1,:]),label='Fake AV Velocity in Y')
             ax.plot((fakes[i,0,0,:]),label='Fake AV Velocity in X')
             
@@ -226,6 +230,8 @@ class Visualizer():
             ax = fig.add_subplot(3, 2, 2+2*j)
             i=rand[j]
             
+            ax.plot((fakes_lstm[i,0,3,:]),label='Fake_lstm AV Velocity in Y')
+            ax.plot((fakes_lstm[i,0,2,:]),label='Fake_lstm AV Velocity in X')
             
             ax.plot((fakes[i,0,3,:]),label='Fake AG Velocity in Y')
             ax.plot((fakes[i,0,2,:]),label='Fake AG Velocity in X')
@@ -304,7 +310,7 @@ class Visualizer():
         plt.show()
         
         
-    def display_current_images_dif3(self, reals, fakes, fixed, mode, epoch, bs):
+    def display_current_images_dif3(self, reals, fakes, fixed, mode, epoch, bs, fakes_lstm):
     
         """ Display current images.
         Args:

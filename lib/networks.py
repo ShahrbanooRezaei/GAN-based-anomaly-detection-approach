@@ -129,7 +129,82 @@ summary(model, (1, 1, 1))
 #print(model)
 
 
+# class Encoder_lstm(nn.Module):
 
+#   def __init__(self, seq_len, n_features, embedding_dim, batchsize):
+#     super(Encoder_lstm, self).__init__()
+
+#     self.seq_len, self.n_features = seq_len, n_features
+#     self.embedding_dim, self.hidden_dim = embedding_dim, 1 * embedding_dim
+#     self.batchsize = batchsize
+
+#     self.rnn1 = nn.LSTM(
+#       input_size=n_features,
+#       hidden_size=self.hidden_dim,
+#       num_layers=1,
+#       batch_first=True
+#     )
+    
+#     self.rnn2 = nn.LSTM(
+#       input_size=self.hidden_dim,
+#       hidden_size=embedding_dim,
+#       num_layers=1,
+#       batch_first=True
+#     )
+
+#   def forward(self, x):
+#     x = x.reshape((self.batchsize, self.seq_len, self.n_features))
+#     # print(x.shape)
+#     x, (h, _) = self.rnn1(x)
+#     # print(h.shape)
+#     # print(a.shape)
+#     x, (hidden_n, _) = self.rnn2(x)
+#     # print(x.shape)
+#     # print(hidden_n.shape)
+
+#     return hidden_n.reshape((self.batchsize, 1, self.embedding_dim))
+
+
+# class Decoder_lstm(nn.Module):
+
+#   def __init__(self, seq_len, n_features, input_dim, batchsize):
+#     super(Decoder_lstm, self).__init__()
+
+#     self.seq_len, self.input_dim = seq_len, input_dim
+#     self.hidden_dim, self.n_features = 1 * input_dim, n_features
+#     self.batchsize = batchsize
+
+#     self.rnn1 = nn.LSTM(
+#       input_size=input_dim,
+#       hidden_size=input_dim,
+#       num_layers=1,
+#       batch_first=True
+#     )
+
+#     self.rnn2 = nn.LSTM(
+#       input_size=input_dim,
+#       hidden_size=self.hidden_dim,
+#       num_layers=1,
+#       batch_first=True
+#     )
+
+#     self.output_layer = nn.Linear(self.hidden_dim, n_features)#!!!
+
+#   def forward(self, x):
+#     # print('ffffffffffffffffff')
+#     # print(x.shape)
+#     x = x.repeat(1, self.seq_len, 1)
+#     # print(x.shape)
+#     x = x.reshape((self.batchsize, self.seq_len, self.input_dim))
+#     # print(x.shape)
+
+#     x, (hidden_n, cell_n) = self.rnn1(x)
+#     x, (hidden_n, cell_n) = self.rnn2(x)
+#     x = x.reshape((self.batchsize, self.seq_len, self.hidden_dim)) 
+#     xx = self.output_layer(x)
+#     xx = xx.reshape((self.batchsize, 1, self.n_features, self.seq_len))
+#     # print(xx.shape)
+#     return xx
 ##
 class NetD(nn.Module):
     """
@@ -169,6 +244,35 @@ class NetG(nn.Module):
         latent_i = self.encoder1(x)
         gen_imag = self.decoder(latent_i)
         latent_o = self.encoder2(gen_imag)
-        return gen_imag, latent_i, latent_o
+        return gen_imag, latent_i , latent_o
 
 
+# class RecurrentAutoencoder(nn.Module):
+
+#   def __init__(self, opt):
+#     super(RecurrentAutoencoder, self).__init__()
+
+#     self.encoder_lstm = Encoder_lstm(opt.isize2, opt.isize1, opt.embedding_dim, opt.batchsize)
+#     self.decoder_lstm = Decoder_lstm(opt.isize2, opt.isize1, opt.embedding_dim, opt.batchsize)
+
+#   def forward(self, x):
+#     x = self.encoder_lstm(x)
+#     x = self.decoder_lstm(x)
+
+#     return x
+
+
+
+class Autoencoder(nn.Module): 
+    
+    def __init__(self, opt):  
+        super(Autoencoder, self).__init__() 
+        
+        self.encoderAE = Encoder(opt.isize1, opt.isize2, opt.nz, opt.nc, opt.ngf, opt.ngpu) 
+        
+        self.decoderAE = Decoder(opt.isize1, opt.isize2, opt.nz, opt.nc, opt.ngf, opt.ngpu) 
+    
+    def forward(self, x):
+        latent_i = self.encoderAE(x)
+        gen_imag = self.decoderAE(latent_i)
+        return gen_imag

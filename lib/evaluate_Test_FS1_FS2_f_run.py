@@ -79,42 +79,6 @@ def per(thres,score, label,exp, epoch):
     plt.savefig('experiments\{:s}\{:s}\performance\{:d}_perT_img_{:s}.png'.format(opt.dataset,opt.tun_name,epoch,exp))
     plt.close()
 
-def per_rev(thres,score, label,exp, epoch):
-    """ Compute Accuracy, sensitivity, specificity, F1 score and PPV for different thresholds """
-    CNN = [] 
-    pred = []
-    acc=[] 
-    sensetivity=[] 
-    specificity=[] 
-    F1=[] 
-    ppv=[]
-    
-    for tao in [0.04]:
-        pred = []
-        for jj in range(score.shape[0]):
-            if score[jj] <= tao:
-                pred.append(0)
-            else:
-                pred.append(1)
-        
-        tn, fp, fn, tp= confusion_matrix(label, pred).ravel()
-        
-        acc = 100*((tp+tn)/(tp+tn+fp+fn))
-        sensetivity = 100*( tp/(tp + fn))
-        specificity = 100*( tn/(tn + fp))
-        F1 = 100*((2*tp) / (2*tp + fp + fn))
-        ppv = 100*( tp/(tp+fp+0.000005))
-            
-        
-        CNN.append([tao,acc, sensetivity, specificity, F1, ppv])
-        
-    df3=pd.DataFrame(CNN)
-    df3.columns=['Tao', 'acc', 'sensetivity', 'specificity', 'F1', 'PPV']
-    df3.to_csv('experiments\{:s}\{:s}\performance\{:d}_fper_{:s}.csv'.format(opt.dataset,opt.tun_name,epoch,exp), index=False)
-    
-     
-      
-    
 
 def roc(scores, labels, exp, epoch):
     """Compute ROC curve and ROC area for each class"""
@@ -160,102 +124,89 @@ def PR(scores, labels,exp, epoch):
     #plt.show()
     plt.close()    
     
-def performance(opt,epoch):
-    
-    score_root_1 = 'experiments/'+'%s/'%opt.dataset+'%s/'%opt.tun_name+'performance/'+ 'fe_'+'%d'%epoch +'_Score_FS1.csv'
-    score_root_2 = 'experiments/'+'%s/'%opt.dataset+'%s/'%opt.tun_name+'performance/'+ 'fe_'+'%d'%epoch+'_Score_FS2.csv'
-    label_root = opt.label_root
-    
-    FS1 = np.array(pd.read_csv(score_root_1, header=None))
-    FS2 = np.array(pd.read_csv(score_root_2, header=None))
-    #???????????????????????????????????????????? 1300
-    
-    weight = [0,0,0,0,0,1,0]
-    
-    scores_FS1 = np.sum(weight*(FS1),axis=1)
-    scores_FS2 = np.sum(weight*(FS2), axis=1)
-    label_FS1_FS2 = np.array(pd.read_csv(label_root, header=None))
-    
-    
-    scores_FS1_norm = (scores_FS1-np.min(scores_FS1))/(np.max(scores_FS1)-np.min(scores_FS1))
-    scores_FS2_norm = (scores_FS2-np.min(scores_FS2))/(np.max(scores_FS2)-np.min(scores_FS2))
-    
-    
-    thres = opt.threshold
-    ##FS1
-    per(thres,scores_FS1_norm, label_FS1_FS2[:,0],'FS1',epoch)
-    roc(scores_FS1_norm, label_FS1_FS2[:,0],'FS1',epoch)
-    PR(scores_FS1_norm, label_FS1_FS2[:,0],'FS1',epoch)
-    
-    ##FS2
-    per(thres,scores_FS2_norm, label_FS1_FS2[:,0],'FS2',epoch)#!!!!!!!!!!!!!!
-    roc(scores_FS2_norm, label_FS1_FS2[:,0],'FS2',epoch)#!!!!!!!!!!!!!!!
-    PR(scores_FS2_norm, label_FS1_FS2[:,0],'FS2',epoch)
-
-
 def performance_lstm(opt,epoch):
     
     score_root_1 = 'experiments/'+'%s/'%opt.dataset+'%s/'%opt.tun_name+'performance/'+ 'fe_'+'%d'%epoch +'_Score_FS1.csv'
     score_root_2 = 'experiments/'+'%s/'%opt.dataset+'%s/'%opt.tun_name+'performance/'+ 'fe_'+'%d'%epoch+'_Score_FS2.csv'
     label_root = opt.label_root
     
-    FS1 = np.array(pd.read_csv(score_root_1, header=None))
-    FS2 = np.array(pd.read_csv(score_root_2, header=None))
-    #???????????????????????????????????????????? 1300
+    FS1_t = np.array(pd.read_csv(score_root_1, header=None))
+    FS2_t = np.array(pd.read_csv(score_root_2, header=None))
     
-    weight = [0,0,0,0,0,0,1]
+    label_FS1_FS2_t = np.array(pd.read_csv(label_root, header=None))
     
-    scores_FS1 = np.sum(weight*(FS1),axis=1)
-    scores_FS2 = np.sum(weight*(FS2), axis=1)
-    label_FS1_FS2 = np.array(pd.read_csv(label_root, header=None))
+    for i in range(10):
+        
+        FS1 = FS1_t[i*1000*245:(i+1)*1000*245,:]
+        FS2 = FS2_t[i*1000*245:(i+1)*1000*245,:]
+        label_FS1_FS2 = label_FS1_FS2_t[i*1000*245:(i+1)*1000*245,:]
     
-    
-    scores_FS1_norm = (scores_FS1-np.min(scores_FS1))/(np.max(scores_FS1)-np.min(scores_FS1))
-    scores_FS2_norm = (scores_FS2-np.min(scores_FS2))/(np.max(scores_FS2)-np.min(scores_FS2))
-    
-    
-    thres = opt.threshold
-    ##FS1
-    per(thres,scores_FS1_norm, label_FS1_FS2[:,0],'FS1_lstm',epoch)
-    roc(scores_FS1_norm, label_FS1_FS2[:,0],'FS1_lstm',epoch)
-    PR(scores_FS1_norm, label_FS1_FS2[:,0],'FS1_lstm',epoch)
-    
-    ##FS2
-    per(thres,scores_FS2_norm, label_FS1_FS2[:,0],'FS2_lstm',epoch)#!!!!!!!!!!!!!!
-    roc(scores_FS2_norm, label_FS1_FS2[:,0],'FS2_lstm',epoch)#!!!!!!!!!!!!!!!
-    PR(scores_FS2_norm, label_FS1_FS2[:,0],'FS2_lstm',epoch)
+        #???????????????????????????????????????????? 1300
+        
+        # weight = opt.per_weight
+        weight = [0,0,0,0,0,0,1]
+        
+        scores_FS1 = np.sum(weight*(FS1),axis=1)
+        scores_FS2 = np.sum(weight*(FS2), axis=1)
+        
+        
+        
+        scores_FS1_norm = (scores_FS1-np.min(scores_FS1))/(np.max(scores_FS1)-np.min(scores_FS1))
+        scores_FS2_norm = (scores_FS2-np.min(scores_FS2))/(np.max(scores_FS2)-np.min(scores_FS2))
+        
+        
+        thres = opt.threshold
+        ##FS1
+        per(thres,scores_FS1_norm, label_FS1_FS2[:,0],'FS1_lstm',i)
+        roc(scores_FS1_norm, label_FS1_FS2[:,0],'FS1_lstm',i)
+        PR(scores_FS1_norm, label_FS1_FS2[:,0],'FS1_lstm',i)
+        
+        ##FS2
+        per(thres,scores_FS2_norm, label_FS1_FS2[:,0],'FS2_lstm',i)#!!!!!!!!!!!!!!
+        roc(scores_FS2_norm, label_FS1_FS2[:,0],'FS2_lstm',i)#!!!!!!!!!!!!!!!
+        PR(scores_FS2_norm, label_FS1_FS2[:,0],'FS2_lstm',i)
 
 
-def performance_rev(opt,ep, epoch):
+def performance(opt,epoch):
     
-    score_root_1 = 'experiments/'+'%s/'%opt.dataset+'%s/'%opt.tun_name+'performance/'+ 'fe_'+'%d'%ep +'_Score_FS1.csv'
-    score_root_2 = 'experiments/'+'%s/'%opt.dataset+'%s/'%opt.tun_name+'performance/'+ 'fe_'+'%d'%ep+'_Score_FS2.csv'
+    score_root_1 = 'experiments/'+'%s/'%opt.dataset+'%s/'%opt.tun_name+'performance/'+ 'fe_'+'%d'%epoch +'_Score_FS1.csv'
+    score_root_2 = 'experiments/'+'%s/'%opt.dataset+'%s/'%opt.tun_name+'performance/'+ 'fe_'+'%d'%epoch+'_Score_FS2.csv'
     label_root = opt.label_root
     
-    FS1 = np.array(pd.read_csv(score_root_1, header=None))
-    FS2 = np.array(pd.read_csv(score_root_2, header=None))
-    #???????????????????????????????????????????? 1300
+    FS1_t = np.array(pd.read_csv(score_root_1, header=None))
+    FS2_t = np.array(pd.read_csv(score_root_2, header=None))
     
-    weight = opt.per_weight
+    label_FS1_FS2_t = np.array(pd.read_csv(label_root, header=None))
     
-    scores_FS1 = np.sum(weight*(FS1),axis=1)
-    scores_FS2 = np.sum(weight*(FS2), axis=1)
-    label_FS1_FS2 = np.array(pd.read_csv(label_root, header=None))
+    for i in range(10):
+        
+        FS1 = FS1_t[i*1000*245:(i+1)*1000*245,:]
+        FS2 = FS2_t[i*1000*245:(i+1)*1000*245,:]
+        label_FS1_FS2 = label_FS1_FS2_t[i*1000*245:(i+1)*1000*245,:]
     
-    
-    scores_FS1_norm = (scores_FS1-np.min(scores_FS1))/(np.max(scores_FS1)-np.min(scores_FS1))
-    scores_FS2_norm = (scores_FS2-np.min(scores_FS2))/(np.max(scores_FS2)-np.min(scores_FS2))
-    
-    
-    thres = opt.threshold
-    ##FS1
-    per_rev(thres,scores_FS1_norm, label_FS1_FS2[:,0],'FS1',epoch)
-    # roc(scores_FS1_norm, label_FS1_FS2[:,0],'FS1',epoch)
-    # PR(scores_FS1_norm, label_FS1_FS2[:,0],'FS1',epoch)
-    
-    ##FS2
-    per_rev(thres,scores_FS2_norm, label_FS1_FS2[:,0],'FS2',epoch)#!!!!!!!!!!!!!!
-    # roc(scores_FS2_norm, label_FS1_FS2[:,0],'FS2',epoch)#!!!!!!!!!!!!!!!
-    # PR(scores_FS2_norm, label_FS1_FS2[:,0],'FS2',epoch)
+        #???????????????????????????????????????????? 1300
+        
+        # weight = opt.per_weight
+        weight = [0,0,0,0,0,1,0]
+        
+        scores_FS1 = np.sum(weight*(FS1),axis=1)
+        scores_FS2 = np.sum(weight*(FS2), axis=1)
+        
+        
+        
+        scores_FS1_norm = (scores_FS1-np.min(scores_FS1))/(np.max(scores_FS1)-np.min(scores_FS1))
+        scores_FS2_norm = (scores_FS2-np.min(scores_FS2))/(np.max(scores_FS2)-np.min(scores_FS2))
+        
+        
+        thres = opt.threshold
+        ##FS1
+        per(thres,scores_FS1_norm, label_FS1_FS2[:,0],'FS1',i)
+        roc(scores_FS1_norm, label_FS1_FS2[:,0],'FS1',i)
+        PR(scores_FS1_norm, label_FS1_FS2[:,0],'FS1',i)
+        
+        ##FS2
+        per(thres,scores_FS2_norm, label_FS1_FS2[:,0],'FS2',i)#!!!!!!!!!!!!!!
+        roc(scores_FS2_norm, label_FS1_FS2[:,0],'FS2',i)#!!!!!!!!!!!!!!!
+        PR(scores_FS2_norm, label_FS1_FS2[:,0],'FS2',i)
     
  
